@@ -3,9 +3,11 @@ import select
 import signal
 import sys
 import os
+import time
 
-HEADER_LENGTH = 30
+HEADER_LENGTH = 32
 ENCODING = 'utf-8'
+ERROR = 'backslashreplace'
 
 IP = "127.0.0.1"
 PORT = 1024
@@ -36,7 +38,7 @@ def receive_message(client_socket, is_time):
         if not len(message_header):
             return False
 
-        message_length = int(message_header.decode(ENCODING).strip())
+        message_length = int(message_header.decode(ENCODING, ERROR).strip())
         # print('message_length: {}'.format(message_length))
 
 
@@ -76,28 +78,24 @@ while True:
 
             clients[client_socket] = user
 
-            print('Accepted new connection from {}:{}, username: {}'.format(*client_address, user['data'].decode(ENCODING)))
+            print('Accepted new connection from {}:{}, username: {}'.format(*client_address, user['data'].decode(ENCODING, ERROR)))
 
         else:
-            message = receive_message(notified_socket, True)
+            message = receive_message(notified_socket, False)
 
             if message is False:
-                print(f"Closed connection from {clients[notified_socket]['data'].decode(ENCODING)}")
+                print(f"Closed connection from {clients[notified_socket]['data'].decode(ENCODING, ERROR)}")
                 sockets_list.remove(notified_socket)
                 del clients[notified_socket]
                 continue
 
             user = clients[notified_socket]
-            print(f'[{message["time"].decode(ENCODING).strip()}] Received message from {user["data"].decode(ENCODING)}: {message["data"].decode(ENCODING)}')
-
+            time_now = int(time.time())
+            time_message = f"{time_now:<{HEADER_LENGTH}}".encode(ENCODING, ERROR)
+            print(f'[{time_message.decode(ENCODING, ERROR).strip()}] Received message from {user["data"].decode(ENCODING, ERROR)}: {message["data"].decode(ENCODING, ERROR)}')
             for client_socket in clients:
                 if client_socket != notified_socket:
-                    # print(message['time'])
-                    # print (user['header'])
-                    # print(user['data'])
-                    # print(message['header'])
-                    # print(message['data'])
-                    client_socket.send(message['time'] + user['header'] + user['data'] + message['header'] + message['data'])
+                    client_socket.send(time_message + user['header'] + user['data'] + message['header'] + message['data'])
 
     for notified_socket in exception_sockets:
         sockets_list.remove(notified_socket)
